@@ -1,5 +1,9 @@
 package com.nightfall.modules;
 
+import java.util.Set;
+import java.util.HashSet;
+import net.minecraft.client.player.AbstractClientPlayer;
+import com.nightfall.core.CommandManager;
 import com.nightfall.core.Category;
 import com.nightfall.core.Module;
 import com.nightfall.core.ModuleManager;
@@ -16,6 +20,8 @@ public final class MiscModules {
     public static void register(ModuleManager m) {
         m.add(new AntiAfk());
         m.add(new ChatSuffix());
+        m.add(new DeathCoords());
+        m.add(new PlayerAlert());
     }
 
     // ------------------------------------------------------------------
@@ -58,6 +64,62 @@ public final class MiscModules {
             super("ChatSuffix", "Adds a Nightfall tag to the end of your chat messages.", Category.MISC);
             ClientSendMessageEvents.MODIFY_CHAT.register(message ->
                     isEnabled() && message.length() + SUFFIX.length() <= 250 ? message + SUFFIX : message);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class DeathCoords extends Module {
+        private boolean announced;
+
+        public DeathCoords() {
+            super("DeathCoords", "Prints the coordinates where you died in chat.", Category.MISC);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (p.isDeadOrDying()) {
+                if (!announced) {
+                    announced = true;
+                    CommandManager.info(String.format("You died at X %d  Y %d  Z %d",
+                            p.getBlockX(), p.getBlockY(), p.getBlockZ()));
+                }
+            } else {
+                announced = false;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class PlayerAlert extends Module {
+        private Set<String> seen = new HashSet<>();
+
+        public PlayerAlert() {
+            super("PlayerAlert", "Tells you in chat when another player comes into render distance.", Category.MISC);
+        }
+
+        @Override
+        protected void onEnable() {
+            seen = new HashSet<>();
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            Set<String> now = new HashSet<>();
+            for (AbstractClientPlayer other : mc.level.players()) {
+                if (other == p) {
+                    continue;
+                }
+                String name = other.getName().getString();
+                now.add(name);
+                if (!seen.contains(name)) {
+                    CommandManager.info("\u00a7e" + name + "\u00a7r is in range (" + (int) p.distanceTo(other) + " blocks)");
+                }
+            }
+            seen = now;
         }
     }
 }

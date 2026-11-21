@@ -1,5 +1,8 @@
 package com.nightfall.modules;
 
+import java.util.Set;
+import net.minecraft.world.entity.projectile.FishingHook;
+import net.minecraft.world.entity.EquipmentSlot;
 import com.nightfall.core.Category;
 import com.nightfall.core.Module;
 import com.nightfall.core.ModuleManager;
@@ -33,6 +36,10 @@ public final class PlayerModules {
         m.add(new ChestStealer());
         m.add(new Scaffold());
         m.add(new Nuker());
+        m.add(new AutoArmor());
+        m.add(new AutoFish());
+        m.add(new AutoMine());
+        m.add(new AutoDrop());
     }
 
     // ------------------------------------------------------------------
@@ -295,6 +302,204 @@ public final class PlayerModules {
             current = null;
             if (mc.gameMode != null) {
                 mc.gameMode.stopDestroyBlock();
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoArmor extends Module {
+        private static final EquipmentSlot[] SLOTS = {
+                EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+        private static final String[] SUFFIX = {"_helmet", "_chestplate", "_leggings", "_boots"};
+
+        private final Setting.Num delay = num("Delay", 2, 0, 10, 1);
+        private int cooldown;
+
+        public AutoArmor() {
+            super("AutoArmor", "Wears the best armor in your inventory. Never removes an elytra or other non-armor item.", Category.PLAYER);
+        }
+
+        private static int score(ItemStack stack, int slotIndex) {
+            if (stack.isEmpty() || !InvUtil.path(stack).endsWith(SUFFIX[slotIndex])) {
+                return 0;
+            }
+            return InvUtil.armorTier(stack);
+        }
+
+        private void click(int menuSlot) {
+            mc.gameMode.handleInventoryMouseClick(
+                    mc.player.inventoryMenu.containerId, menuSlot, 0, ClickType.QUICK_MOVE, mc.player);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (cooldown > 0) {
+                cooldown--;
+                return;
+            }
+            if (mc.gameMode == null || p.containerMenu != p.inventoryMenu) {
+                return;
+            }
+
+            for (int i = 0; i < 4; i++) {
+                ItemStack worn = p.getItemBySlot(SLOTS[i]);
+                int wornScore = score(worn, i);
+                if (!worn.isEmpty() && wornScore == 0) {
+                    continue; // elytra, pumpkin, a mob head...: leave it alone
+                }
+
+                int best = -1;
+                int bestScore = wornScore;
+                for (int idx = 0; idx < 36; idx++) {
+                    int s = score(p.getInventory().getItem(idx), i);
+                    if (s > bestScore) {
+                        best = idx;
+                        bestScore = s;
+                    }
+                }
+                if (best == -1) {
+                    continue;
+                }
+
+                if (!worn.isEmpty()) {
+                    if (InvUtil.findInventory(ItemStack::isEmpty) == -1) {
+                        continue; // nowhere to put the old piece
+                    }
+                    click(5 + i); // shift-click the worn piece back into the inventory
+                } else {
+                    click(InvUtil.menuSlot(best)); // shift-click equips it
+                }
+                cooldown = delay.i();
+                return;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoFish extends Module {
+        private final Setting.Num sensitivity = num("Sensitivity", 0.15, 0.05, 0.5, 0.01);
+        private final Setting.Num recastDelay = num("Recast", 12, 4, 60, 1);
+
+        private int recast = -1;
+        private double lastY;
+        private boolean hadHook;
+
+        public AutoFish() {
+            super("AutoFish", "Reels in and recasts when the bobber dips. Cast once by hand to start. Lower Sensitivity if it misses bites.", Category.PLAYER);
+        }
+
+        @Override
+        protected void onEnable() {
+            recast = -1;
+            hadHook = false;
+        }
+
+        private void useRod() {
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+            mc.player.swing(InteractionHand.MAIN_HAND);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (mc.gameMode == null || mc.screen != null || !p.getMainHandItem().is(Items.FISHING_ROD)) {
+                return;
+            }
+            FishingHook hook = p.fishing;
+
+            if (recast > 0) {
+                recast--;
+                return;
+            }
+            if (recast == 0) {
+                recast = -1;
+                if (hook == null) {
+                    useRod();
+                }
+                return;
+            }
+
+            if (hook == null) {
+                if (hadHook) {
+                    hadHook = false;
+                    recast = recastDelay.i();
+                }
+                return;
+            }
+
+            hadHook = true;
+            double dy = hook.getY() - lastY;
+            lastY = hook.getY();
+            if (hook.tickCount > 30 && hook.isInWater() && dy < -sensitivity.d()) {
+                useRod();
+                hadHook = false;
+                recast = recastDelay.i();
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoMine extends Module {
+        public AutoMine() {
+            super("AutoMine", "Holds the attack/mine button for you.", Category.PLAYER);
+        }
+
+        @Override
+        public void onTick() {
+            if (mc.screen == null) {
+                mc.options.keyAttack.setDown(true);
+            }
+        }
+
+        @Override
+        protected void onDisable() {
+            mc.options.keyAttack.setDown(false);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoDrop extends Module {
+        private static final Set<String> FOOD = Set.of("rotten_flesh", "spider_eye", "poisonous_potato");
+        private static final Set<String> BLOCKS = Set.of(
+                "cobblestone", "cobbled_deepslate", "dirt", "gravel", "andesite", "diorite", "granite", "netherrack", "tuff");
+
+        private final Setting.Bool junkFood = bool("JunkFood", true);
+        private final Setting.Bool junkBlocks = bool("JunkBlocks", false);
+        private final Setting.Num delay = num("Delay", 4, 0, 20, 1);
+        private int cooldown;
+
+        public AutoDrop() {
+            super("AutoDrop", "Drops junk (rotten flesh, spider eyes... and optionally cobble, dirt, gravel) from your inventory.", Category.PLAYER);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (cooldown > 0) {
+                cooldown--;
+                return;
+            }
+            if (mc.gameMode == null || p.containerMenu != p.inventoryMenu) {
+                return;
+            }
+            for (int idx = 0; idx < 36; idx++) {
+                ItemStack stack = p.getInventory().getItem(idx);
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                String path = InvUtil.path(stack);
+                if ((junkFood.on() && FOOD.contains(path)) || (junkBlocks.on() && BLOCKS.contains(path))) {
+                    // THROW with button 1 drops the whole stack.
+                    mc.gameMode.handleInventoryMouseClick(
+                            p.inventoryMenu.containerId, InvUtil.menuSlot(idx), 1, ClickType.THROW, p);
+                    cooldown = delay.i();
+                    return;
+                }
             }
         }
     }

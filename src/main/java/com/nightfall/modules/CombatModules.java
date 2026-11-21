@@ -1,5 +1,8 @@
 package com.nightfall.modules;
 
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.util.Mth;
 import com.nightfall.core.Category;
 import com.nightfall.core.Module;
 import com.nightfall.core.ModuleManager;
@@ -31,6 +34,8 @@ public final class CombatModules {
         m.add(new Reach());
         m.add(new Velocity());
         m.add(new AutoTotem());
+        m.add(new AimAssist());
+        m.add(new AutoWeapon());
     }
 
     // ------------------------------------------------------------------
@@ -266,6 +271,99 @@ public final class CombatModules {
             mc.gameMode.handleInventoryMouseClick(
                     p.inventoryMenu.containerId, InvUtil.menuSlot(slot), 40, ClickType.SWAP, p);
             cooldown = delay.i();
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AimAssist extends Module {
+        private final Setting.Num range = num("Range", 5.0, 2.0, 8.0, 0.5);
+        private final Setting.Num fov = num("FOV", 70, 10, 180, 5);
+        private final Setting.Num smooth = num("Smooth", 0.25, 0.05, 1.0, 0.05);
+        private final Setting.Bool players = bool("Players", true);
+        private final Setting.Bool mobs = bool("Mobs", true);
+        private final Setting.Bool animals = bool("Animals", false);
+        private final Setting.Bool onlyClicking = bool("OnlyClicking", true);
+
+        public AimAssist() {
+            super("AimAssist", "Smoothly steers your aim towards the closest target inside your field of view.", Category.COMBAT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (mc.screen != null || (onlyClicking.on() && !mc.options.keyAttack.isDown())) {
+                return;
+            }
+
+            float[] bestRot = null;
+            float bestScore = Float.MAX_VALUE;
+            for (Entity e : mc.level.getEntities(p, p.getBoundingBox().inflate(range.d()), x -> true)) {
+                if (!TargetUtil.isValid(e, players.on(), mobs.on(), animals.on()) || p.distanceTo(e) > range.d()) {
+                    continue;
+                }
+                float[] rot = TargetUtil.rotationsTo(e);
+                float yawDiff = Math.abs(Mth.wrapDegrees(rot[0] - p.getYRot()));
+                float pitchDiff = Math.abs(rot[1] - p.getXRot());
+                if (yawDiff > fov.d() / 2.0) {
+                    continue;
+                }
+                float score = yawDiff + pitchDiff;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestRot = rot;
+                }
+            }
+            if (bestRot == null) {
+                return;
+            }
+
+            float s = smooth.f();
+            p.setYRot(p.getYRot() + Mth.wrapDegrees(bestRot[0] - p.getYRot()) * s);
+            p.setXRot(Mth.clamp(p.getXRot() + (bestRot[1] - p.getXRot()) * s, -90.0f, 90.0f));
+        }
+
+        @Override
+        public String getSuffix() {
+            return smooth.display();
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoWeapon extends Module {
+        private final Setting.Bool axes = bool("Axes", false);
+
+        public AutoWeapon() {
+            super("AutoWeapon", "Switches to your best sword when you attack something.", Category.COMBAT);
+        }
+
+        @Override
+        public void onTick() {
+            if (mc.screen != null || !mc.options.keyAttack.isDown()
+                    || !(mc.hitResult instanceof EntityHitResult hit)
+                    || !TargetUtil.isValid(hit.getEntity(), true, true, true)) {
+                return;
+            }
+
+            int best = -1;
+            int bestScore = 0;
+            for (int i = 0; i < 9; i++) {
+                ItemStack stack = mc.player.getInventory().getItem(i);
+                int score = 0;
+                if (stack.is(ItemTags.SWORDS)) {
+                    score = 10 + InvUtil.toolTier(stack);
+                } else if (axes.on() && stack.is(ItemTags.AXES)) {
+                    score = InvUtil.toolTier(stack);
+                }
+                if (score > bestScore) {
+                    best = i;
+                    bestScore = score;
+                }
+            }
+            if (best != -1 && best != InvUtil.selectedSlot()) {
+                InvUtil.select(best);
+            }
         }
     }
 }

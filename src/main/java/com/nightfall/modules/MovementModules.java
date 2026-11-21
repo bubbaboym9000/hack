@@ -26,6 +26,14 @@ public final class MovementModules {
         m.add(new Spider());
         m.add(new NoFall());
         m.add(new Glide());
+        m.add(new HighJump());
+        m.add(new AirJump());
+        m.add(new ElytraFly());
+        m.add(new FastLadder());
+        m.add(new AutoJump());
+        m.add(new AutoWalk());
+        m.add(new NoClip());
+        m.add(new AutoSneak());
     }
 
     // ------------------------------------------------------------------
@@ -280,6 +288,207 @@ public final class MovementModules {
             if (v.y < -fallSpeed.d()) {
                 p.setDeltaMovement(v.x, -fallSpeed.d(), v.z);
             }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class HighJump extends Module {
+        private static final double VANILLA = 0.42;
+        private final Setting.Num power = num("Power", 0.84, 0.42, 2.0, 0.02);
+
+        public HighJump() {
+            super("HighJump", "Jump much higher.", Category.MOVEMENT);
+        }
+
+        private void apply(double value) {
+            LocalPlayer p = mc.player;
+            if (p == null) {
+                return;
+            }
+            AttributeInstance jump = p.getAttribute(Attributes.JUMP_STRENGTH);
+            if (jump != null) {
+                jump.setBaseValue(value);
+            }
+        }
+
+        @Override
+        public void onTick() {
+            apply(power.d());
+        }
+
+        @Override
+        protected void onDisable() {
+            apply(VANILLA);
+        }
+
+        @Override
+        public String getSuffix() {
+            return power.display();
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AirJump extends Module {
+        private boolean jumpWas;
+
+        public AirJump() {
+            super("AirJump", "Jump again while already in the air.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            boolean jump = mc.options.keyJump.isDown() && mc.screen == null;
+            if (jump && !jumpWas && !p.onGround() && !p.isInWater() && !p.isInLava() && !p.getAbilities().flying) {
+                Vec3 v = p.getDeltaMovement();
+                p.setDeltaMovement(v.x, 0.42, v.z);
+            }
+            jumpWas = jump;
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class ElytraFly extends Module {
+        private final Setting.Num speed = num("Speed", 1.5, 0.5, 4.0, 0.1);
+
+        public ElytraFly() {
+            super("ElytraFly", "While gliding: W flies where you look, Shift hovers in place.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (!p.isFallFlying()) {
+                return;
+            }
+            if (mc.options.keyUp.isDown()) {
+                p.setDeltaMovement(p.getLookAngle().scale(speed.d()));
+            } else if (mc.options.keyShift.isDown()) {
+                p.setDeltaMovement(Vec3.ZERO);
+            }
+        }
+
+        @Override
+        public String getSuffix() {
+            return speed.display();
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class FastLadder extends Module {
+        private final Setting.Num speed = num("Speed", 0.28, 0.1, 0.6, 0.02);
+
+        public FastLadder() {
+            super("FastLadder", "Climb ladders and vines faster.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (p.onClimbable() && p.horizontalCollision && !p.isShiftKeyDown()) {
+                Vec3 v = p.getDeltaMovement();
+                p.setDeltaMovement(v.x, speed.d(), v.z);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoJump extends Module {
+        public AutoJump() {
+            super("AutoJump", "Jumps for you when you walk into a block.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (p.onGround() && p.horizontalCollision && MoveUtil.isMoving() && !p.isShiftKeyDown()) {
+                Vec3 v = p.getDeltaMovement();
+                p.setDeltaMovement(v.x, 0.42, v.z);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoWalk extends Module {
+        public AutoWalk() {
+            super("AutoWalk", "Holds the forward key for you.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            if (mc.screen == null) {
+                mc.options.keyUp.setDown(true);
+            }
+        }
+
+        @Override
+        protected void onDisable() {
+            mc.options.keyUp.setDown(false);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class NoClip extends Module {
+        private final Setting.Num speed = num("Speed", 0.6, 0.1, 3.0, 0.1);
+
+        public NoClip() {
+            super("NoClip", "Move through blocks. Turn it off while inside a block and you will be stuck.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            p.noPhysics = true;
+            p.setOnGround(false);
+            p.fallDistance = 0;
+
+            Vec3 dir = MoveUtil.direction(speed.d());
+            double vy = 0;
+            if (mc.options.keyJump.isDown()) {
+                vy = speed.d();
+            } else if (mc.options.keyShift.isDown()) {
+                vy = -speed.d();
+            }
+            p.setDeltaMovement(dir.x, vy, dir.z);
+        }
+
+        @Override
+        protected void onDisable() {
+            if (mc.player != null) {
+                mc.player.noPhysics = false;
+            }
+        }
+
+        @Override
+        public String getSuffix() {
+            return speed.display();
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoSneak extends Module {
+        public AutoSneak() {
+            super("AutoSneak", "Holds sneak for you.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            if (mc.screen == null) {
+                mc.options.keyShift.setDown(true);
+            }
+        }
+
+        @Override
+        protected void onDisable() {
+            mc.options.keyShift.setDown(false);
         }
     }
 }

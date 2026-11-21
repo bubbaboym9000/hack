@@ -2,6 +2,7 @@ package com.nightfall.core;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -36,6 +37,9 @@ public final class ConfigManager {
             }
             root.add(m.name, obj);
         }
+        JsonArray friends = new JsonArray();
+        FriendManager.all().forEach(friends::add);
+        root.add("_friends", friends);
         try {
             Path f = file();
             Files.createDirectories(f.getParent());
@@ -52,6 +56,14 @@ public final class ConfigManager {
         }
         try (Reader reader = Files.newBufferedReader(f)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            JsonElement friendList = root.get("_friends");
+            if (friendList != null && friendList.isJsonArray()) {
+                java.util.List<String> names = new java.util.ArrayList<>();
+                for (JsonElement el : friendList.getAsJsonArray()) {
+                    names.add(el.getAsString());
+                }
+                FriendManager.replaceAll(names);
+            }
             for (Module m : ModuleManager.INSTANCE.all()) {
                 JsonElement element = root.get(m.name);
                 if (element == null || !element.isJsonObject()) {

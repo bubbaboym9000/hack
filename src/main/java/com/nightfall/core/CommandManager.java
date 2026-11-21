@@ -34,6 +34,8 @@ public final class CommandManager {
                 info(".toggle <module> - toggle a module");
                 info(".settings <module> - show a module's settings");
                 info(".set <module> <setting> <value> - change a setting");
+                info(".friend <add|remove|list> [name] - players Nightfall never targets");
+                info(".save / .reload - write or re-read the config file");
                 info(".gui - open the ClickGUI");
                 info(".panic - disable every module");
             }
@@ -98,6 +100,35 @@ public final class CommandManager {
                 } else {
                     info("'" + args[3] + "' is not a valid value for " + s.name + ".");
                 }
+            }
+            case "friend", "friends", "f" -> {
+                if (args.length < 2 || args[1].equalsIgnoreCase("list")) {
+                    info("Friends: " + (FriendManager.all().isEmpty() ? "none" : String.join(", ", FriendManager.all())));
+                    break;
+                }
+                if (args.length < 3) {
+                    info("Usage: .friend <add|remove|list> <name>");
+                    break;
+                }
+                switch (args[1].toLowerCase()) {
+                    case "add" -> {
+                        FriendManager.add(args[2]);
+                        info(args[2] + " is now a friend.");
+                    }
+                    case "remove", "del" -> info(FriendManager.remove(args[2])
+                            ? args[2] + " removed from friends."
+                            : args[2] + " was not on the friend list.");
+                    default -> info("Usage: .friend <add|remove|list> <name>");
+                }
+                ConfigManager.save();
+            }
+            case "save" -> {
+                ConfigManager.save();
+                info("Config saved.");
+            }
+            case "reload" -> {
+                ConfigManager.load();
+                info("Config reloaded.");
             }
             case "gui" -> {
                 Minecraft mc = Minecraft.getInstance();

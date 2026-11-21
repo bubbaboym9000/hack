@@ -1,5 +1,9 @@
 package com.nightfall.modules;
 
+import java.time.format.DateTimeFormatter;
+import java.time.LocalTime;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.EquipmentSlot;
 import com.nightfall.core.Category;
 import com.nightfall.core.Module;
 import com.nightfall.core.ModuleManager;
@@ -37,6 +41,11 @@ public final class RenderModules {
         m.add(new XRay());
         m.add(new Zoom());
         m.add(new Radar());
+        m.add(new Keystrokes());
+        m.add(new ArmorHud());
+        m.add(new PotionHud());
+        m.add(new Info());
+        m.add(new NoBob());
         m.add(new Hud());
     }
 
@@ -271,6 +280,172 @@ public final class RenderModules {
                     index++;
                 }
             }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class Keystrokes extends Module {
+        public Keystrokes() {
+            super("Keystrokes", "Shows WASD and jump on screen.", Category.RENDER);
+        }
+
+        private void key(GuiGraphics g, String label, boolean down, int x, int y, int w) {
+            g.fill(x, y, x + w, y + 18, down ? 0xB08B5CF6 : 0x80000000);
+            g.drawCenteredString(mc.font, label, x + w / 2, y + 5, 0xFFFFFFFF);
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            var o = mc.options;
+            int x = g.guiWidth() - 64;
+            int y = g.guiHeight() - 66;
+            key(g, "W", o.keyUp.isDown(), x + 20, y, 18);
+            key(g, "A", o.keyLeft.isDown(), x, y + 20, 18);
+            key(g, "S", o.keyDown.isDown(), x + 20, y + 20, 18);
+            key(g, "D", o.keyRight.isDown(), x + 40, y + 20, 18);
+            key(g, "_", o.keyJump.isDown(), x, y + 40, 58);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class ArmorHud extends Module {
+        private static final EquipmentSlot[] SLOTS = {
+                EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+
+        public ArmorHud() {
+            super("ArmorHud", "Shows your armor and its durability.", Category.RENDER);
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            LocalPlayer p = mc.player;
+            int x = 4;
+            int y = g.guiHeight() - 96;
+            for (EquipmentSlot slot : SLOTS) {
+                ItemStack stack = p.getItemBySlot(slot);
+                if (!stack.isEmpty()) {
+                    g.renderItem(stack, x, y);
+                    g.renderItemDecorations(mc.font, stack, x, y);
+                    if (stack.isDamageableItem()) {
+                        int left = stack.getMaxDamage() - stack.getDamageValue();
+                        g.drawString(mc.font, Integer.toString(left), x + 20, y + 4, 0xFFFFFFFF);
+                    }
+                }
+                y += 18;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class PotionHud extends Module {
+        public PotionHud() {
+            super("PotionHud", "Lists your active potion effects with their time left.", Category.RENDER);
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            int y = g.guiHeight() / 2 - 20;
+            for (MobEffectInstance e : mc.player.getActiveEffects()) {
+                String name = e.getEffect().value().getDisplayName().getString();
+                int seconds = e.getDuration() / 20;
+                String time = e.isInfiniteDuration()
+                        ? "inf"
+                        : String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
+                int color = e.getEffect().value().isBeneficial() ? 0xFF55FF55 : 0xFFFF5555;
+                g.drawString(mc.font, name + " " + (e.getAmplifier() + 1) + " \u00a77" + time, 4, y, color);
+                y += 10;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class Info extends Module {
+        private final Setting.Bool fps = bool("FPS", true);
+        private final Setting.Bool ping = bool("Ping", true);
+        private final Setting.Bool speed = bool("Speed", true);
+        private final Setting.Bool clock = bool("Clock", true);
+
+        private long lastSecond = System.nanoTime();
+        private int frames;
+        private int shownFps;
+        private double lastX;
+        private double lastZ;
+        private double bps;
+
+        public Info() {
+            super("Info", "FPS, ping, speed and the time, centred at the top of the screen.", Category.RENDER);
+        }
+
+        @Override
+        protected void onEnable() {
+            if (mc.player != null) {
+                lastX = mc.player.getX();
+                lastZ = mc.player.getZ();
+            }
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            double now = Math.hypot(p.getX() - lastX, p.getZ() - lastZ) * 20.0;
+            bps = bps * 0.7 + now * 0.3;
+            lastX = p.getX();
+            lastZ = p.getZ();
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            frames++;
+            long now = System.nanoTime();
+            if (now - lastSecond >= 1_000_000_000L) {
+                shownFps = frames;
+                frames = 0;
+                lastSecond = now;
+            }
+
+            List<String> parts = new ArrayList<>();
+            if (fps.on()) {
+                parts.add(shownFps + " FPS");
+            }
+            if (ping.on()) {
+                var connection = mc.getConnection();
+                var info = connection == null ? null : connection.getPlayerInfo(mc.player.getUUID());
+                parts.add((info == null ? 0 : info.getLatency()) + " ms");
+            }
+            if (speed.on()) {
+                parts.add(String.format(Locale.ROOT, "%.1f b/s", bps));
+            }
+            if (clock.on()) {
+                parts.add(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+            }
+            if (!parts.isEmpty()) {
+                g.drawCenteredString(mc.font, String.join("  |  ", parts), g.guiWidth() / 2, 4, 0xFFFFFFFF);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class NoBob extends Module {
+        private boolean previous;
+
+        public NoBob() {
+            super("NoBob", "Turns off the view bobbing while you walk.", Category.RENDER);
+        }
+
+        @Override
+        protected void onEnable() {
+            previous = mc.options.bobView().get();
+            mc.options.bobView().set(false);
+        }
+
+        @Override
+        protected void onDisable() {
+            mc.options.bobView().set(previous);
         }
     }
 }

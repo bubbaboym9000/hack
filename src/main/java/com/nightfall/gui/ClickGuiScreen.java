@@ -29,6 +29,9 @@ public class ClickGuiScreen extends Screen {
     /** Kept static so panels stay expanded between openings. */
     private static final Set<Module> EXPANDED = new HashSet<>();
 
+    private double scroll;
+    private int contentBottom;
+
     private interface RowVisitor {
         /** module == null: category header. setting == null: module row. Otherwise: setting row. */
         void row(Category category, Module module, Setting<?> setting, int x, int y, int w, int h);
@@ -45,11 +48,12 @@ public class ClickGuiScreen extends Screen {
 
     private void layout(RowVisitor visitor) {
         Category[] categories = Category.values();
+        contentBottom = 0;
         int total = categories.length * PANEL_W + (categories.length - 1) * GAP;
         int x = (this.width - total) / 2;
 
         for (Category category : categories) {
-            int y = TOP;
+            int y = TOP + (int) scroll;
             visitor.row(category, null, null, x, y, PANEL_W, HEADER_H);
             y += HEADER_H;
 
@@ -63,6 +67,7 @@ public class ClickGuiScreen extends Screen {
                     }
                 }
             }
+            contentBottom = Math.max(contentBottom, y - (int) scroll);
             x += PANEL_W + GAP;
         }
     }
@@ -71,7 +76,7 @@ public class ClickGuiScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
 
-        g.drawCenteredString(this.font, "Nightfall  -  left click: toggle / change   right click: settings",
+        g.drawCenteredString(this.font, "Nightfall  -  left click: toggle / change   right click: settings   wheel: scroll",
                 this.width / 2, 8, 0xFFB388FF);
 
         final String[] hovered = {null};
@@ -133,6 +138,13 @@ public class ClickGuiScreen extends Screen {
         });
 
         return handled[0] || super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        double min = Math.min(0, this.height - 8 - contentBottom);
+        scroll = Math.max(min, Math.min(0, scroll + scrollY * 14));
+        return true;
     }
 
     @Override

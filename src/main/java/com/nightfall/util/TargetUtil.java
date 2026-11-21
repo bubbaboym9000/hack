@@ -1,5 +1,6 @@
 package com.nightfall.util;
 
+import com.nightfall.core.FriendManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
@@ -25,7 +26,7 @@ public final class TargetUtil {
             return false;
         }
         if (e instanceof Player) {
-            return players;
+            return players && !FriendManager.isFriend(e.getName().getString());
         }
         if (e instanceof Enemy) {
             return mobs;
@@ -58,12 +59,9 @@ public final class TargetUtil {
         return best;
     }
 
-    /** Turns the player's view towards the centre of the entity. */
-    public static void face(Entity target) {
+    /** {yaw, pitch} that would point the player's view at the centre of the entity. */
+    public static float[] rotationsTo(Entity target) {
         LocalPlayer p = Minecraft.getInstance().player;
-        if (p == null) {
-            return;
-        }
         Vec3 eye = p.getEyePosition();
         Vec3 to = target.getBoundingBox().getCenter();
         double dx = to.x - eye.x;
@@ -73,7 +71,17 @@ public final class TargetUtil {
 
         float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
-        p.setYRot(yaw);
-        p.setXRot(Mth.clamp(pitch, -90.0f, 90.0f));
+        return new float[]{yaw, Mth.clamp(pitch, -90.0f, 90.0f)};
+    }
+
+    /** Turns the player's view straight towards the centre of the entity. */
+    public static void face(Entity target) {
+        LocalPlayer p = Minecraft.getInstance().player;
+        if (p == null) {
+            return;
+        }
+        float[] rot = rotationsTo(target);
+        p.setYRot(rot[0]);
+        p.setXRot(rot[1]);
     }
 }

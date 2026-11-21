@@ -28,7 +28,14 @@ jobs:
           gradle-version: 9.2.1
 
       - name: Build
-        run: gradle build --no-daemon --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle build --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Show compile errors as annotations
+        if: failure()
+        run: python3 .github/scripts/annotate_errors.py build.log
 
       - name: Upload the jar
         uses: actions/upload-artifact@v4
