@@ -5,8 +5,8 @@ A utility client for **Minecraft 1.21.11** (Fabric, Mojang mappings). 30 modules
 ## Build and run
 
 ```
-./gradlew build          # jar ends up in build/libs/nightfall-1.0.0.jar
-./gradlew runClient      # launch a dev client
+gradle build             # jar ends up in build/libs/nightfall-1.0.0.jar (Gradle 9.2+; no wrapper included)
+gradle runClient         # launch a dev client
 ```
 
 Needs Java 21. Drop the jar in `mods/` next to Fabric Loader 0.18.1+ and Fabric API.
@@ -23,7 +23,7 @@ The project includes `.github/workflows/build.yml`, which builds the jar on GitH
 If the run turns red, open it, click the *Build* step and copy the error lines. They show exactly which line needs fixing.
 
 > **Not compiled yet.** This was written without access to the Minecraft jars, so it has only been syntax-checked.
-> If `./gradlew build` reports errors, they will almost certainly be in the spots listed under *Known risk spots*.
+> If `gradle build` reports errors, they will almost certainly be in the spots listed under *Known risk spots*.
 
 ## Controls
 
