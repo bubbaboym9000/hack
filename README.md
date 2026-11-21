@@ -1,6 +1,6 @@
 # Nightfall
 
-A utility client for **Minecraft 1.21.11** (Fabric, Mojang mappings). 30 modules, a ClickGUI, a HUD, dot-commands and per-module keybinds.
+A utility client for **Minecraft 1.21.11** (Fabric, Mojang mappings). 51 modules, a ClickGUI, a HUD, dot-commands and per-module keybinds.
 
 ## Build and run
 
@@ -15,15 +15,14 @@ Needs Java 21. Drop the jar in `mods/` next to Fabric Loader 0.18.1+ and Fabric 
 
 The project includes `.github/workflows/build.yml`, which builds the jar on GitHub's servers.
 
-1. Create a new **private** repository on github.com (empty, no README).
-2. Upload everything in this folder to it. Easiest: on the new repo page click **uploading an existing file**, drag in the *contents* of the unzipped folder (including the hidden `.github` folder), and commit.
-3. Open the **Actions** tab. The *Build Nightfall* run starts by itself. When it turns green, open it and download **nightfall-jar** from the Artifacts section at the bottom. Unzip that and you have `nightfall-1.0.0.jar`.
-4. Later builds: push a change, or use **Actions > Build Nightfall > Run workflow**. Pushing a tag like `v1.0.1` also attaches the jar to a GitHub Release.
+1. Push this project to a GitHub repository (any branch).
+2. Open the **Actions** tab. The *Build Nightfall* run starts by itself. When it turns green, open it and download **nightfall-jar** from the Artifacts section at the bottom. Unzip that and you have `nightfall-1.0.0.jar`.
+3. Later builds: push a change, or use **Actions > Build Nightfall > Run workflow**. Pushing a tag like `v1.0.1` also attaches the jar to a GitHub Release.
 
-If the run turns red, open it, click the *Build* step and copy the error lines. They show exactly which line needs fixing.
+If the run turns red, the compile errors are printed as annotations at the top of the run page (file, line and message). Copy those.
 
-> **Not compiled yet.** This was written without access to the Minecraft jars, so it has only been syntax-checked.
-> If `gradle build` reports errors, they will almost certainly be in the spots listed under *Known risk spots*.
+> **Compiles, but not play-tested.** The project builds on GitHub, but nothing has been run in a real game yet, so some modules may misbehave.
+> The mixin-based ones (ESP, XRay) are the most likely to need a tweak. See *Known risk spots*.
 
 ## Controls
 
@@ -31,26 +30,26 @@ If the run turns red, open it, click the *Build* step and copy the error lines. 
 |---|---|
 | Open ClickGUI | **Right Shift** (rebindable) |
 | Toggle a module | Left click it in the GUI, or bind a key in **Options > Controls > Key Binds > Nightfall** (every module has an unbound toggle key) |
-| Module settings | Right click a module in the GUI to expand it. Left click a setting = next / up, right click = previous / down |
-| Chat commands | `.help`, `.list`, `.toggle <module>`, `.settings <module>`, `.set <module> <setting> <value>`, `.gui`, `.panic` |
+| Module settings | Right click a module in the GUI to expand it. Left click a setting = next / up, right click = previous / down. Mouse wheel scrolls the panels |
+| Chat commands | `.help`, `.list`, `.toggle <module>`, `.settings <module>`, `.set <module> <setting> <value>`, `.friend <add\|remove\|list> [name]`, `.save`, `.reload`, `.gui`, `.panic` |
 
-Commands never leave your client. Settings are saved to `config/nightfall.json`. Modules always start off (except HUD).
+Commands never leave your client. Settings and the friend list are saved to `config/nightfall.json`. Modules always start off (except HUD). Friends are never targeted by KillAura, TriggerBot, AimAssist, AutoWeapon or ESP.
 
 ## Modules
 
-**Combat** KillAura, TriggerBot, AutoClicker, Criticals, Reach, Velocity, AutoTotem
-**Movement** Fly (Vanilla / Velocity), Speed, Sprint, Bhop, Step, Jesus, Spider, NoFall, Glide
-**Render** Fullbright, ESP, XRay, Zoom, Radar, HUD
-**Player** AutoRespawn, AutoTool, AutoEat, ChestStealer, Scaffold, Nuker
-**Misc** AntiAFK, ChatSuffix
+**Combat** KillAura, TriggerBot, AutoClicker, Criticals, Reach, Velocity, AutoTotem, AimAssist, AutoWeapon
+**Movement** Fly (Vanilla / Velocity), Speed, Sprint, Bhop, Step, Jesus, Spider, NoFall, Glide, HighJump, AirJump, ElytraFly, FastLadder, AutoJump, AutoWalk, NoClip, AutoSneak
+**Render** Fullbright, ESP, XRay, Zoom, Radar, HUD, Keystrokes, ArmorHud, PotionHud, Info (FPS / ping / speed / clock), NoBob
+**Player** AutoRespawn, AutoTool, AutoEat, ChestStealer, Scaffold, Nuker, AutoArmor, AutoFish, AutoMine, AutoDrop
+**Misc** AntiAFK, ChatSuffix, DeathCoords, PlayerAlert
 
 Not included on purpose: server-crash and packet-exploit modules.
-Not included because they need render or movement hooks I couldn't verify offline: Freecam, Tracers, NoSlow, FastPlace, Timer.
+Not included because they need render or movement hooks that can't be checked without running the game: Freecam, Tracers, NoSlow, FastPlace, Timer, Blink.
 
 ## Layout
 
 ```
-core/      Module, Setting, ModuleManager, ConfigManager, CommandManager
+core/      Module, Setting, ModuleManager, ConfigManager, CommandManager, FriendManager
 modules/   one file per category, each module is a small nested class
 gui/       ClickGuiScreen
 mixin/     EntityMixin (ESP glow), BlockMixin (XRay)
@@ -66,6 +65,8 @@ Adding a module: extend `Module`, declare settings with `bool/num/mode`, overrid
 3. `NoFall` reads `Entity.fallDistance` and sends `ServerboundMovePlayerPacket.StatusOnly(boolean, boolean)`. `Criticals` sends `ServerboundMovePlayerPacket.Pos(x, y, z, onGround, horizontalCollision)`.
 4. `ClickGuiScreen.mouseClicked(MouseButtonEvent, boolean)` uses the 1.21.9+ input event API.
 5. `HudRenderCallback` is deprecated in recent Fabric API but still present for 1.21.11. If a later Fabric API removes it, switch to `HudElementRegistry`.
+6. `AutoFish` detects a bite by watching the bobber dip, which depends on how the server syncs it. If it misses bites or reels too early, change its Sensitivity setting.
+7. `NoClip` lets you end up inside blocks. Turning it off there leaves you stuck, so move to open air first.
 
 ## Using it
 
