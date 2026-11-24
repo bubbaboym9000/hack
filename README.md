@@ -33,6 +33,8 @@ If the run turns red, the compile errors are printed as annotations at the top o
 | Module settings | Right click a module in the GUI to expand it. Left click a setting = next / up, right click = previous / down. Mouse wheel scrolls the panels |
 | Chat commands | `.help`, `.list`, `.toggle <module>`, `.settings <module>`, `.set <module> <setting> <value>`, `.friend <add\|remove\|list> [name]`, `.save`, `.reload`, `.gui`, `.panic` |
 
+The ClickGUI and HUD use a night theme: midnight-blue panels, a starfield with an occasional shooting star, a crescent moon and a blue-to-violet module list. All colours live in `gui/Theme.java`.
+
 Commands never leave your client. Settings and the friend list are saved to `config/nightfall.json`. Modules always start off (except HUD). Friends are never targeted by KillAura, TriggerBot, AimAssist, AutoWeapon or ESP.
 
 ## Modules
@@ -51,7 +53,7 @@ Not included because they need render or movement hooks that can't be checked wi
 ```
 core/      Module, Setting, ModuleManager, ConfigManager, CommandManager, FriendManager
 modules/   one file per category, each module is a small nested class
-gui/       ClickGuiScreen
+gui/       ClickGuiScreen, Theme
 mixin/     EntityMixin (ESP glow), BlockMixin (XRay)
 util/      MoveUtil, InvUtil, TargetUtil
 ```

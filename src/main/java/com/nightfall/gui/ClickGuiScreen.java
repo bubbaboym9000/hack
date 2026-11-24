@@ -14,8 +14,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * One panel per category. Left click a module to toggle it, right click to expand its settings.
- * Click a setting to change it (left = next / up, right = previous / down).
+ * One panel per category on a night-sky backdrop. Left click a module to toggle it, right click to
+ * expand its settings. Click a setting to change it (left = next / up, right = previous / down).
  */
 public class ClickGuiScreen extends Screen {
     private static final int PANEL_W = 112;
@@ -24,7 +24,6 @@ public class ClickGuiScreen extends Screen {
     private static final int SETTING_H = 12;
     private static final int GAP = 8;
     private static final int TOP = 24;
-    private static final int ACCENT = 0xFF8B5CF6;
 
     /** Kept static so panels stay expanded between openings. */
     private static final Set<Module> EXPANDED = new HashSet<>();
@@ -76,8 +75,12 @@ public class ClickGuiScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
 
-        g.drawCenteredString(this.font, "Nightfall  -  left click: toggle / change   right click: settings   wheel: scroll",
-                this.width / 2, 8, 0xFFB388FF);
+        Theme.sky(g, this.width, this.height);
+
+        // Title with a little crescent moon to its left.
+        int titleWidth = this.font.width("Nightfall");
+        Theme.moon(g, this.width / 2 - titleWidth / 2 - 9, 12, 5, Theme.MOON);
+        g.drawCenteredString(this.font, "Nightfall", this.width / 2, 8, Theme.ACCENT_SOFT);
 
         final String[] hovered = {null};
 
@@ -85,30 +88,36 @@ public class ClickGuiScreen extends Screen {
             boolean over = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
 
             if (module == null) {
-                g.fill(x, y, x + w, y + h, 0xFF120A22);
-                g.fill(x, y + h - 1, x + w, y + h, ACCENT);
-                g.drawString(this.font, category.label, x + 6, y + 4, 0xFFFFFFFF);
+                g.fill(x, y, x + w, y + h, Theme.HEADER);
+                g.fill(x, y + h - 1, x + w, y + h, Theme.ACCENT);
+                g.drawString(this.font, category.label, x + 6, y + 4, Theme.TEXT);
             } else if (setting == null) {
-                int background = module.isEnabled() ? 0xE0522A9C : (over ? 0xE0302848 : 0xE01A1426);
-                g.fill(x, y, x + w, y + h, background);
-                g.drawString(this.font, module.name, x + 6, y + 3, module.isEnabled() ? 0xFFFFFFFF : 0xFFB8B0C8);
+                boolean on = module.isEnabled();
+                g.fill(x, y, x + w, y + h, on ? Theme.ROW_ON : (over ? Theme.ROW_HOVER : Theme.ROW));
+                if (on) {
+                    g.fill(x, y, x + 2, y + h, Theme.ACCENT);
+                }
+                g.drawString(this.font, module.name, x + 6, y + 3, on ? Theme.TEXT : Theme.TEXT_MUTED);
                 if (!module.getSettings().isEmpty()) {
-                    g.drawString(this.font, EXPANDED.contains(module) ? "-" : "+", x + w - 10, y + 3, 0xFF9088A8);
+                    g.drawString(this.font, EXPANDED.contains(module) ? "-" : "+", x + w - 10, y + 3, Theme.TEXT_DIM);
                 }
                 if (over) {
                     hovered[0] = module.description;
                 }
             } else {
-                g.fill(x, y, x + w, y + h, over ? 0xE0241C38 : 0xE0150F22);
-                g.drawString(this.font, setting.name, x + 10, y + 2, 0xFFC8C0D8);
+                g.fill(x, y, x + w, y + h, over ? Theme.SETTING_HOVER : Theme.SETTING);
+                g.drawString(this.font, setting.name, x + 10, y + 2, Theme.TEXT_MUTED);
                 String value = setting.display();
-                g.drawString(this.font, value, x + w - this.font.width(value) - 6, y + 2, 0xFFB388FF);
+                g.drawString(this.font, value, x + w - this.font.width(value) - 6, y + 2, Theme.ACCENT);
             }
         });
 
         if (hovered[0] != null) {
-            g.drawString(this.font, hovered[0], 6, this.height - 12, 0xFFFFFFFF);
+            g.drawString(this.font, hovered[0], 6, this.height - 12, Theme.TEXT);
         }
+
+        String hint = "left click: toggle   right click: settings   wheel: scroll";
+        g.drawString(this.font, hint, this.width - this.font.width(hint) - 6, this.height - 12, Theme.TEXT_DIM);
     }
 
     @Override

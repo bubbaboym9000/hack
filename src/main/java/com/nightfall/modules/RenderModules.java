@@ -8,6 +8,7 @@ import com.nightfall.core.Category;
 import com.nightfall.core.Module;
 import com.nightfall.core.ModuleManager;
 import com.nightfall.core.Setting;
+import com.nightfall.gui.Theme;
 import com.nightfall.util.TargetUtil;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -188,9 +189,9 @@ public final class RenderModules {
             int box = size.i();
             int x0 = 6;
             int y0 = 30;
-            int accent = 0xFF8B5CF6;
+            int accent = Theme.ACCENT;
 
-            g.fill(x0, y0, x0 + box, y0 + box, 0x90000000);
+            g.fill(x0, y0, x0 + box, y0 + box, Theme.HUD_BG);
             g.fill(x0, y0, x0 + box, y0 + 1, accent);
             g.fill(x0, y0 + box - 1, x0 + box, y0 + box, accent);
             g.fill(x0, y0, x0 + 1, y0 + box, accent);
@@ -198,7 +199,7 @@ public final class RenderModules {
 
             int cx = x0 + box / 2;
             int cy = y0 + box / 2;
-            g.fill(cx - 1, cy - 1, cx + 2, cy + 2, 0xFFFFFFFF);
+            g.fill(cx - 1, cy - 1, cx + 2, cy + 2, Theme.MOON);
 
             double yaw = Math.toRadians(p.getYRot());
             double sin = Math.sin(yaw);
@@ -218,7 +219,7 @@ public final class RenderModules {
                 if (px < x0 + 2 || px > x0 + box - 3 || py < y0 + 2 || py > y0 + box - 3) {
                     continue;
                 }
-                int color = e instanceof Player ? 0xFFFF5555 : e instanceof Enemy ? 0xFFFFAA00 : 0xFF55FF55;
+                int color = e instanceof Player ? 0xFFFF6B6B : e instanceof Enemy ? 0xFFFFB454 : 0xFF7CE0A5;
                 g.fill(px - 1, py - 1, px + 1, py + 1, color);
             }
         }
@@ -249,12 +250,13 @@ public final class RenderModules {
             int height = g.guiHeight();
 
             if (watermark.on()) {
-                g.drawString(font, "Nightfall", 4, 4, 0xFFB388FF);
+                Theme.moon(g, 9, 8, 4, Theme.MOON);
+                g.drawString(font, "Nightfall", 17, 4, Theme.ACCENT_SOFT);
             }
 
             if (coords.on()) {
                 String text = String.format(Locale.ROOT, "XYZ %.1f / %.1f / %.1f", p.getX(), p.getY(), p.getZ());
-                g.drawString(font, text, 4, height - 12, 0xFFFFFFFF);
+                g.drawString(font, text, 4, height - 12, Theme.TEXT);
             }
 
             if (arrayList.on()) {
@@ -266,14 +268,13 @@ public final class RenderModules {
                 }
                 active.sort(Comparator.comparingInt((Module m) -> -font.width(label(m))));
 
-                float hueBase = (System.currentTimeMillis() % 6000L) / 6000.0f;
                 int y = 2;
                 int index = 0;
                 for (Module m : active) {
                     String text = label(m);
                     int x = width - font.width(text) - 4;
-                    int color = 0xFF000000 | Mth.hsvToRgb((hueBase + index * 0.04f) % 1.0f, 0.55f, 1.0f);
-                    g.fill(x - 2, y - 1, width, y + 10, 0x80000000);
+                    int color = Theme.twilight(index);
+                    g.fill(x - 2, y - 1, width, y + 10, Theme.HUD_BG);
                     g.fill(width - 1, y - 1, width, y + 10, color);
                     g.drawString(font, text, x, y, color);
                     y += 11;
@@ -291,8 +292,8 @@ public final class RenderModules {
         }
 
         private void key(GuiGraphics g, String label, boolean down, int x, int y, int w) {
-            g.fill(x, y, x + w, y + 18, down ? 0xB08B5CF6 : 0x80000000);
-            g.drawCenteredString(mc.font, label, x + w / 2, y + 5, 0xFFFFFFFF);
+            g.fill(x, y, x + w, y + 18, down ? Theme.ACCENT_PRESSED : Theme.HUD_BG);
+            g.drawCenteredString(mc.font, label, x + w / 2, y + 5, Theme.TEXT);
         }
 
         @Override
@@ -423,7 +424,7 @@ public final class RenderModules {
                 parts.add(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
             }
             if (!parts.isEmpty()) {
-                g.drawCenteredString(mc.font, String.join("  |  ", parts), g.guiWidth() / 2, 4, 0xFFFFFFFF);
+                g.drawCenteredString(mc.font, String.join("  |  ", parts), g.guiWidth() / 2, 4, Theme.TEXT);
             }
         }
     }
