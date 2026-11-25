@@ -1,5 +1,8 @@
 package com.nightfall.modules;
 
+import com.nightfall.core.FriendManager;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.item.Items;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalTime;
 import net.minecraft.world.item.ItemStack;
@@ -47,6 +50,10 @@ public final class RenderModules {
         m.add(new PotionHud());
         m.add(new Info());
         m.add(new NoBob());
+        m.add(new Pointers());
+        m.add(new Compass());
+        m.add(new TargetHud());
+        m.add(new ItemCounter());
         m.add(new Hud());
     }
 
@@ -447,6 +454,156 @@ public final class RenderModules {
         @Override
         protected void onDisable() {
             mc.options.bobView().set(previous);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class Pointers extends Module {
+        private final Setting.Num range = num("Range", 60, 10, 150, 5);
+        private final Setting.Bool players = bool("Players", true);
+        private final Setting.Bool mobs = bool("Mobs", false);
+
+        public Pointers() {
+            super("Pointers", "Dots around your crosshair that point towards nearby players and mobs. Green = friend.", Category.RENDER);
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            LocalPlayer p = mc.player;
+            int cx = g.guiWidth() / 2;
+            int cy = g.guiHeight() / 2;
+            int radius = 48;
+
+            for (Entity e : mc.level.getEntities(p, p.getBoundingBox().inflate(range.d()), x -> true)) {
+                boolean isPlayer = e instanceof Player;
+                if (!e.isAlive() || !((isPlayer && players.on()) || (e instanceof Enemy && mobs.on()))) {
+                    continue;
+                }
+                double dist = p.distanceTo(e);
+                if (dist > range.d()) {
+                    continue;
+                }
+
+                double dx = e.getX() - p.getX();
+                double dz = e.getZ() - p.getZ();
+                double targetYaw = Math.toDegrees(Math.atan2(dz, dx)) - 90.0;
+                double diff = Math.toRadians(Mth.wrapDegrees((float) (targetYaw - p.getYRot())));
+                int px = cx + (int) Math.round(Math.sin(diff) * radius);
+                int py = cy - (int) Math.round(Math.cos(diff) * radius);
+
+                int color = isPlayer
+                        ? (FriendManager.isFriend(e.getName().getString()) ? 0xFF7CE0A5 : 0xFFFF6B6B)
+                        : 0xFFFFB454;
+                g.fill(px - 2, py - 2, px + 3, py + 3, color);
+                if (isPlayer) {
+                    g.drawCenteredString(mc.font, Integer.toString((int) dist), px, py + 5, Theme.TEXT_MUTED);
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class Compass extends Module {
+        private static final String[] NAMES = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
+
+        public Compass() {
+            super("Compass", "Shows which way you are facing.", Category.RENDER);
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            float yaw = Mth.wrapDegrees(mc.player.getYRot());
+            String name = NAMES[Math.floorMod(Math.round(yaw / 45.0f), 8)];
+            g.drawCenteredString(mc.font, name + "  " + Math.round(yaw) + "\u00b0", g.guiWidth() / 2, 16, Theme.ACCENT_SOFT);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class TargetHud extends Module {
+        private LivingEntity last;
+        private int seen;
+
+        public TargetHud() {
+            super("TargetHud", "Shows the name and health of whatever you last looked at.", Category.RENDER);
+        }
+
+        @Override
+        protected void onEnable() {
+            last = null;
+            seen = 0;
+        }
+
+        @Override
+        public void onTick() {
+            if (mc.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity living && living != mc.player) {
+                last = living;
+                seen = 80;
+            } else if (seen > 0 && --seen == 0) {
+                last = null;
+            }
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            if (last == null || last.isRemoved()) {
+                return;
+            }
+            int x = g.guiWidth() / 2 - 55;
+            int y = g.guiHeight() / 2 + 28;
+
+            float hp = last.getHealth();
+            float ratio = Mth.clamp(hp / Math.max(1.0f, last.getMaxHealth()), 0.0f, 1.0f);
+            String hpText = String.format(Locale.ROOT, "%.1f", hp);
+
+            g.fill(x, y, x + 110, y + 28, Theme.HUD_BG);
+            g.drawString(mc.font, mc.font.plainSubstrByWidth(last.getName().getString(), 66), x + 4, y + 3, Theme.TEXT);
+            g.drawString(mc.font, hpText, x + 106 - mc.font.width(hpText), y + 3, Theme.ACCENT_SOFT);
+            g.fill(x + 4, y + 16, x + 106, y + 22, 0xFF161C3C);
+            g.fill(x + 4, y + 16, x + 4 + (int) (102 * ratio), y + 22, Theme.lerp(0xFFFF5A5A, 0xFF5AE08A, ratio));
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class ItemCounter extends Module {
+        // Built on first use: item stacks cannot be created while the game is still loading.
+        private List<ItemStack> icons;
+
+        public ItemCounter() {
+            super("ItemCounter", "Shows how many totems, golden apples, ender pearls, arrows and XP bottles you carry.", Category.RENDER);
+        }
+
+        @Override
+        public void onHud(GuiGraphics g) {
+            if (icons == null) {
+                icons = List.of(
+                        new ItemStack(Items.TOTEM_OF_UNDYING),
+                        new ItemStack(Items.GOLDEN_APPLE),
+                        new ItemStack(Items.ENDER_PEARL),
+                        new ItemStack(Items.ARROW),
+                        new ItemStack(Items.EXPERIENCE_BOTTLE));
+            }
+            LocalPlayer p = mc.player;
+            int x = g.guiWidth() - 40;
+            int y = g.guiHeight() / 2 - 45;
+            for (ItemStack icon : icons) {
+                int count = 0;
+                for (int i = 0; i < 36; i++) {
+                    ItemStack s = p.getInventory().getItem(i);
+                    if (s.is(icon.getItem())) {
+                        count += s.getCount();
+                    }
+                }
+                if (p.getOffhandItem().is(icon.getItem())) {
+                    count += p.getOffhandItem().getCount();
+                }
+                g.renderItem(icon, x, y);
+                g.drawString(mc.font, Integer.toString(count), x + 20, y + 4, count > 0 ? Theme.TEXT : Theme.TEXT_DIM);
+                y += 18;
+            }
         }
     }
 }

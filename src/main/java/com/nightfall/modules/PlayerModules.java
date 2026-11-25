@@ -1,5 +1,7 @@
 package com.nightfall.modules;
 
+import com.nightfall.util.MoveUtil;
+import net.minecraft.network.chat.Component;
 import java.util.Set;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -40,6 +42,10 @@ public final class PlayerModules {
         m.add(new AutoFish());
         m.add(new AutoMine());
         m.add(new AutoDrop());
+        m.add(new AutoRestock());
+        m.add(new AutoGapple());
+        m.add(new Eagle());
+        m.add(new AutoLog());
     }
 
     // ------------------------------------------------------------------
@@ -501,6 +507,157 @@ public final class PlayerModules {
                     return;
                 }
             }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoRestock extends Module {
+        private final Setting.Num threshold = num("Threshold", 16, 2, 32, 1);
+        private final Setting.Num delay = num("Delay", 3, 0, 10, 1);
+        private int cooldown;
+
+        public AutoRestock() {
+            super("AutoRestock", "Refills a hotbar stack from your inventory when it runs low (blocks, food, arrows...).", Category.PLAYER);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (cooldown > 0) {
+                cooldown--;
+                return;
+            }
+            if (mc.gameMode == null || p.containerMenu != p.inventoryMenu) {
+                return;
+            }
+            for (int hotbar = 0; hotbar < 9; hotbar++) {
+                ItemStack low = p.getInventory().getItem(hotbar);
+                if (low.isEmpty() || !low.isStackable() || low.getCount() > threshold.i()) {
+                    continue;
+                }
+                for (int idx = 9; idx < 36; idx++) {
+                    ItemStack source = p.getInventory().getItem(idx);
+                    if (source.getCount() > low.getCount() && ItemStack.isSameItemSameComponents(low, source)) {
+                        // SWAP with button N swaps the clicked slot with hotbar slot N.
+                        mc.gameMode.handleInventoryMouseClick(
+                                p.inventoryMenu.containerId, InvUtil.menuSlot(idx), hotbar, ClickType.SWAP, p);
+                        cooldown = delay.i();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoGapple extends Module {
+        private final Setting.Num health = num("Health", 10, 2, 19, 1);
+        private boolean eating;
+        private int previous = -1;
+
+        public AutoGapple() {
+            super("AutoGapple", "Eats a golden apple from your hotbar when your health gets low.", Category.PLAYER);
+        }
+
+        private static boolean isApple(ItemStack stack) {
+            return stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            double limit = eating ? health.d() + 6 : health.d();
+            if (p.getHealth() <= limit && mc.screen == null && !p.isCreative() && !p.isSpectator()) {
+                int slot = InvUtil.findHotbar(AutoGapple::isApple);
+                if (slot != -1) {
+                    if (!eating) {
+                        previous = InvUtil.selectedSlot();
+                        eating = true;
+                    }
+                    if (InvUtil.selectedSlot() != slot) {
+                        InvUtil.select(slot);
+                    }
+                    mc.options.keyUse.setDown(true);
+                    return;
+                }
+            }
+            stop();
+        }
+
+        private void stop() {
+            if (!eating) {
+                return;
+            }
+            mc.options.keyUse.setDown(false);
+            if (previous != -1) {
+                InvUtil.select(previous);
+            }
+            previous = -1;
+            eating = false;
+        }
+
+        @Override
+        protected void onDisable() {
+            if (mc.player != null) {
+                stop();
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class Eagle extends Module {
+        private boolean sneaking;
+
+        public Eagle() {
+            super("Eagle", "Sneaks by itself at the edge of a block, then lets go. Handy for bridging.", Category.PLAYER);
+        }
+
+        @Override
+        public void onTick() {
+            if (MoveUtil.edgeAhead()) {
+                mc.options.keyShift.setDown(true);
+                sneaking = true;
+            } else if (sneaking) {
+                mc.options.keyShift.setDown(false);
+                sneaking = false;
+            }
+        }
+
+        @Override
+        protected void onDisable() {
+            if (sneaking) {
+                mc.options.keyShift.setDown(false);
+                sneaking = false;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AutoLog extends Module {
+        private final Setting.Num health = num("Health", 6, 1, 19, 1);
+
+        public AutoLog() {
+            super("AutoLog", "Disconnects you when your health drops too low, then turns itself off.", Category.PLAYER);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (p.isCreative() || p.isSpectator() || p.getHealth() > health.d()) {
+                return;
+            }
+            String reason = "Nightfall AutoLog: health was " + Math.round(p.getHealth());
+            setEnabled(false);
+            p.connection.getConnection().disconnect(Component.literal(reason));
+        }
+
+        @Override
+        public String getSuffix() {
+            return health.display();
         }
     }
 }

@@ -1,5 +1,9 @@
 package com.nightfall.modules;
 
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.entity.player.Player;
+import com.nightfall.core.FriendManager;
+import com.nightfall.core.ConfigManager;
 import java.util.Set;
 import java.util.HashSet;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -22,6 +26,7 @@ public final class MiscModules {
         m.add(new ChatSuffix());
         m.add(new DeathCoords());
         m.add(new PlayerAlert());
+        m.add(new MiddleClickFriend());
     }
 
     // ------------------------------------------------------------------
@@ -120,6 +125,34 @@ public final class MiscModules {
                 }
             }
             seen = now;
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class MiddleClickFriend extends Module {
+        private boolean wasDown;
+
+        public MiddleClickFriend() {
+            super("MiddleClickFriend", "Middle-click a player to add or remove them from your friends.", Category.MISC);
+        }
+
+        @Override
+        public void onTick() {
+            boolean down = mc.options.keyPickItem.isDown();
+            if (down && !wasDown && mc.screen == null
+                    && mc.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof Player target) {
+                String name = target.getName().getString();
+                if (FriendManager.isFriend(name)) {
+                    FriendManager.remove(name);
+                    CommandManager.info(name + " removed from friends.");
+                } else {
+                    FriendManager.add(name);
+                    CommandManager.info(name + " is now a friend.");
+                }
+                ConfigManager.save();
+            }
+            wasDown = down;
         }
     }
 }

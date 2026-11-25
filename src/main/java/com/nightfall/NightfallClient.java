@@ -30,6 +30,8 @@ public class NightfallClient implements ClientModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger("Nightfall");
 
     public static KeyMapping guiKey;
+    public static KeyMapping guiKeyAlt;
+    public static KeyMapping panicKey;
 
     @Override
     @SuppressWarnings("deprecation")
@@ -53,6 +55,19 @@ public class NightfallClient implements ClientModInitializer {
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
                 category));
 
+        // Lunar Client opens its own mod menu with Right Shift, so Insert opens ours as well.
+        guiKeyAlt = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.nightfall.gui_alt",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_INSERT,
+                category));
+
+        panicKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.nightfall.panic",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_END,
+                category));
+
         for (Module m : modules.all()) {
             m.keyMapping = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                     "key.nightfall.module." + m.name.toLowerCase(Locale.ROOT),
@@ -64,10 +79,14 @@ public class NightfallClient implements ClientModInitializer {
         ConfigManager.load();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (guiKey.consumeClick()) {
+            while (guiKey.consumeClick() | guiKeyAlt.consumeClick()) {
                 if (client.screen == null && client.player != null) {
                     client.setScreen(new ClickGuiScreen());
                 }
+            }
+            while (panicKey.consumeClick()) {
+                modules.disableAll();
+                CommandManager.info("Panic: all modules disabled.");
             }
             modules.tick(client);
         });

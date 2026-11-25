@@ -1,6 +1,6 @@
 # Nightfall
 
-A utility client for **Minecraft 1.21.11** (Fabric, Mojang mappings). 51 modules, a ClickGUI, a HUD, dot-commands and per-module keybinds.
+A utility client for **Minecraft 1.21.11** (Fabric, Mojang mappings). 67 modules, a ClickGUI, a HUD, dot-commands and per-module keybinds.
 
 ## Build and run
 
@@ -28,9 +28,10 @@ If the run turns red, the compile errors are printed as annotations at the top o
 
 | Action | How |
 |---|---|
-| Open ClickGUI | **Right Shift** (rebindable) |
+| Open ClickGUI | **Right Shift** or **Insert** (both rebindable). Lunar Client uses Right Shift for its own menu, so use Insert there |
+| Panic | **End** turns every module off at once (also `.panic`) |
 | Toggle a module | Left click it in the GUI, or bind a key in **Options > Controls > Key Binds > Nightfall** (every module has an unbound toggle key) |
-| Module settings | Right click a module in the GUI to expand it. Left click a setting = next / up, right click = previous / down. Mouse wheel scrolls the panels |
+| Module settings | Right click a module in the GUI to expand it. Left click a setting = next / up, right click = previous / down. Mouse wheel scrolls the panels. In a narrow window the panels shrink to fit (a lower GUI Scale in Options > Video Settings gives more room) |
 | Chat commands | `.help`, `.list`, `.toggle <module>`, `.settings <module>`, `.set <module> <setting> <value>`, `.friend <add\|remove\|list> [name]`, `.save`, `.reload`, `.gui`, `.panic` |
 
 The ClickGUI and HUD use a night theme: midnight-blue panels, a starfield with an occasional shooting star, a crescent moon and a blue-to-violet module list. All colours live in `gui/Theme.java`.
@@ -39,14 +40,14 @@ Commands never leave your client. Settings and the friend list are saved to `con
 
 ## Modules
 
-**Combat** KillAura, TriggerBot, AutoClicker, Criticals, Reach, Velocity, AutoTotem, AimAssist, AutoWeapon
-**Movement** Fly (Vanilla / Velocity), Speed, Sprint, Bhop, Step, Jesus, Spider, NoFall, Glide, HighJump, AirJump, ElytraFly, FastLadder, AutoJump, AutoWalk, NoClip, AutoSneak
-**Render** Fullbright, ESP, XRay, Zoom, Radar, HUD, Keystrokes, ArmorHud, PotionHud, Info (FPS / ping / speed / clock), NoBob
-**Player** AutoRespawn, AutoTool, AutoEat, ChestStealer, Scaffold, Nuker, AutoArmor, AutoFish, AutoMine, AutoDrop
-**Misc** AntiAFK, ChatSuffix, DeathCoords, PlayerAlert
+**Combat** KillAura, TriggerBot, AutoClicker, Criticals, Reach, Velocity, AutoTotem, AimAssist, AutoWeapon, BowAim
+**Movement** Fly (Vanilla / Velocity), Speed, Sprint, Bhop, Step, Jesus, Spider, NoFall, Glide, HighJump, AirJump, ElytraFly, FastLadder, AutoJump, AutoWalk, NoClip, AutoSneak, AirStrafe, LongJump, WaterSpeed, SafeWalk, Parkour, NoSlow
+**Render** Fullbright, ESP, XRay, Zoom, Radar, HUD, Keystrokes, ArmorHud, PotionHud, Info (FPS / ping / speed / clock), NoBob, Pointers, Compass, TargetHud, ItemCounter
+**Player** AutoRespawn, AutoTool, AutoEat, ChestStealer, Scaffold, Nuker, AutoArmor, AutoFish, AutoMine, AutoDrop, AutoRestock, AutoGapple, Eagle, AutoLog
+**Misc** AntiAFK, ChatSuffix, DeathCoords, PlayerAlert, MiddleClickFriend
 
 Not included on purpose: server-crash and packet-exploit modules.
-Not included because they need render or movement hooks that can't be checked without running the game: Freecam, Tracers, NoSlow, FastPlace, Timer, Blink.
+Not included because they need render or movement hooks that can't be checked without running the game: Freecam, Tracers, FastPlace, Timer, Blink.
 
 ## Layout
 
@@ -69,6 +70,8 @@ Adding a module: extend `Module`, declare settings with `bool/num/mode`, overrid
 5. `HudRenderCallback` is deprecated in recent Fabric API but still present for 1.21.11. If a later Fabric API removes it, switch to `HudElementRegistry`.
 6. `AutoFish` detects a bite by watching the bobber dip, which depends on how the server syncs it. If it misses bites or reels too early, change its Sensitivity setting.
 7. `NoClip` lets you end up inside blocks. Turning it off there leaves you stuck, so move to open air first.
+8. `AutoLog` disconnects you through the network connection. If your server shows an odd error screen instead of a clean disconnect, tell me.
+9. `BowAim`, `SafeWalk`, `Parkour` and `Eagle` are tuned by estimate (arrow drop, edge detection) and may need small tweaks after real play-testing.
 
 ## Using it
 

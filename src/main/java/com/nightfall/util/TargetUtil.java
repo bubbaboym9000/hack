@@ -74,6 +74,19 @@ public final class TargetUtil {
         return new float[]{yaw, Mth.clamp(pitch, -90.0f, 90.0f)};
     }
 
+    /** {yaw, pitch} that would point the player's view at an arbitrary world position. */
+    public static float[] rotationsToPoint(Vec3 to) {
+        LocalPlayer p = Minecraft.getInstance().player;
+        Vec3 eye = p.getEyePosition();
+        double dx = to.x - eye.x;
+        double dy = to.y - eye.y;
+        double dz = to.z - eye.z;
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
+        return new float[]{yaw, Mth.clamp(pitch, -90.0f, 90.0f)};
+    }
+
     /** Turns the player's view straight towards the centre of the entity. */
     public static void face(Entity target) {
         LocalPlayer p = Minecraft.getInstance().player;

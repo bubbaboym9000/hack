@@ -1,6 +1,7 @@
 package com.nightfall.util;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.Options;
 import net.minecraft.world.phys.Vec3;
 
@@ -11,6 +12,19 @@ public final class MoveUtil {
     public static boolean isMoving() {
         Options o = Minecraft.getInstance().options;
         return o.keyUp.isDown() || o.keyDown.isDown() || o.keyLeft.isDown() || o.keyRight.isDown();
+    }
+
+    /** True when you are on the ground and the block just ahead of you (in your motion) has no floor. */
+    public static boolean edgeAhead() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null || !mc.player.onGround()) {
+            return false;
+        }
+        Vec3 v = mc.player.getDeltaMovement();
+        double px = mc.player.getX() + v.x * 2.5;
+        double pz = mc.player.getZ() + v.z * 2.5;
+        BlockPos below = BlockPos.containing(px, mc.player.getY() - 0.5, pz);
+        return mc.level.getBlockState(below).getCollisionShape(mc.level, below).isEmpty();
     }
 
     /**

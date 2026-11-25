@@ -3,6 +3,7 @@ package com.nightfall.core;
 import com.nightfall.NightfallClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,6 +70,8 @@ public final class ModuleManager {
             while (m.keyMapping.consumeClick()) {
                 if (inWorld) {
                     m.toggle();
+                    mc.gui.setOverlayMessage(Component.literal(
+                            m.name + (m.isEnabled() ? " \u00a7aON" : " \u00a7cOFF")), false);
                 }
             }
         }

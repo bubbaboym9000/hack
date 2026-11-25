@@ -36,6 +36,7 @@ public final class CombatModules {
         m.add(new AutoTotem());
         m.add(new AimAssist());
         m.add(new AutoWeapon());
+        m.add(new BowAim());
     }
 
     // ------------------------------------------------------------------
@@ -364,6 +365,54 @@ public final class CombatModules {
             if (best != -1 && best != InvUtil.selectedSlot()) {
                 InvUtil.select(best);
             }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class BowAim extends Module {
+        private final Setting.Num range = num("Range", 60, 10, 100, 5);
+        private final Setting.Bool players = bool("Players", true);
+        private final Setting.Bool mobs = bool("Mobs", true);
+        private final Setting.Bool predict = bool("Predict", true);
+
+        public BowAim() {
+            super("BowAim", "Aims your bow or crossbow at the closest target while you draw it, allowing for arrow drop and movement.", Category.COMBAT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (mc.screen != null || !p.isUsingItem()) {
+                return;
+            }
+            ItemStack use = p.getUseItem();
+            if (!use.is(Items.BOW) && !use.is(Items.CROSSBOW)) {
+                return;
+            }
+            Entity target = TargetUtil.closest(range.d(), players.on(), mobs.on(), false);
+            if (target == null) {
+                return;
+            }
+
+            // Arrow speed depends on how far the bow is drawn.
+            float f = p.getTicksUsingItem() / 20.0f;
+            f = (f * f + f * 2.0f) / 3.0f;
+            double speed = Math.max(1.0, Math.min(1.0f, f) * 3.0);
+            double flightTicks = p.distanceTo(target) / speed;
+
+            Vec3 aim = target.getBoundingBox().getCenter();
+            if (predict.on()) {
+                aim = aim.add((target.getX() - target.xo) * flightTicks,
+                        (target.getY() - target.yo) * flightTicks,
+                        (target.getZ() - target.zo) * flightTicks);
+            }
+            // Arrows fall 0.05 blocks per tick squared, so aim a little high.
+            aim = aim.add(0, 0.5 * 0.05 * flightTicks * flightTicks, 0);
+
+            float[] rot = TargetUtil.rotationsToPoint(aim);
+            p.setYRot(rot[0]);
+            p.setXRot(rot[1]);
         }
     }
 }

@@ -18,7 +18,8 @@ import java.util.Set;
  * expand its settings. Click a setting to change it (left = next / up, right = previous / down).
  */
 public class ClickGuiScreen extends Screen {
-    private static final int PANEL_W = 112;
+    private static final int MAX_PANEL_W = 112;
+    private static final int MIN_PANEL_W = 64;
     private static final int HEADER_H = 16;
     private static final int ROW_H = 14;
     private static final int SETTING_H = 12;
@@ -48,26 +49,35 @@ public class ClickGuiScreen extends Screen {
     private void layout(RowVisitor visitor) {
         Category[] categories = Category.values();
         contentBottom = 0;
-        int total = categories.length * PANEL_W + (categories.length - 1) * GAP;
-        int x = (this.width - total) / 2;
+        int count = categories.length;
+        int available = this.width - 8;
+        int pw = MAX_PANEL_W;
+        int gap = GAP;
+        if (count * pw + (count - 1) * gap > available) {
+            // Narrow window: squeeze the panels instead of cutting them off.
+            gap = 4;
+            pw = Math.max(MIN_PANEL_W, Math.min(MAX_PANEL_W, (available - (count - 1) * gap) / count));
+        }
+        int total = count * pw + (count - 1) * gap;
+        int x = Math.max(4, (this.width - total) / 2);
 
         for (Category category : categories) {
             int y = TOP + (int) scroll;
-            visitor.row(category, null, null, x, y, PANEL_W, HEADER_H);
+            visitor.row(category, null, null, x, y, pw, HEADER_H);
             y += HEADER_H;
 
             for (Module module : ModuleManager.INSTANCE.inCategory(category)) {
-                visitor.row(category, module, null, x, y, PANEL_W, ROW_H);
+                visitor.row(category, module, null, x, y, pw, ROW_H);
                 y += ROW_H;
                 if (EXPANDED.contains(module)) {
                     for (Setting<?> setting : module.getSettings()) {
-                        visitor.row(category, module, setting, x, y, PANEL_W, SETTING_H);
+                        visitor.row(category, module, setting, x, y, pw, SETTING_H);
                         y += SETTING_H;
                     }
                 }
             }
             contentBottom = Math.max(contentBottom, y - (int) scroll);
-            x += PANEL_W + GAP;
+            x += pw + gap;
         }
     }
 
@@ -97,7 +107,8 @@ public class ClickGuiScreen extends Screen {
                 if (on) {
                     g.fill(x, y, x + 2, y + h, Theme.ACCENT);
                 }
-                g.drawString(this.font, module.name, x + 6, y + 3, on ? Theme.TEXT : Theme.TEXT_MUTED);
+                g.drawString(this.font, this.font.plainSubstrByWidth(module.name, w - 16), x + 6, y + 3,
+                        on ? Theme.TEXT : Theme.TEXT_MUTED);
                 if (!module.getSettings().isEmpty()) {
                     g.drawString(this.font, EXPANDED.contains(module) ? "-" : "+", x + w - 10, y + 3, Theme.TEXT_DIM);
                 }
@@ -106,7 +117,10 @@ public class ClickGuiScreen extends Screen {
                 }
             } else {
                 g.fill(x, y, x + w, y + h, over ? Theme.SETTING_HOVER : Theme.SETTING);
-                g.drawString(this.font, setting.name, x + 10, y + 2, Theme.TEXT_MUTED);
+                String shown = setting.display();
+                g.drawString(this.font,
+                        this.font.plainSubstrByWidth(setting.name, Math.max(0, w - 20 - this.font.width(shown))),
+                        x + 10, y + 2, Theme.TEXT_MUTED);
                 String value = setting.display();
                 g.drawString(this.font, value, x + w - this.font.width(value) - 6, y + 2, Theme.ACCENT);
             }
@@ -117,7 +131,9 @@ public class ClickGuiScreen extends Screen {
         }
 
         String hint = "left click: toggle   right click: settings   wheel: scroll";
-        g.drawString(this.font, hint, this.width - this.font.width(hint) - 6, this.height - 12, Theme.TEXT_DIM);
+        if (this.font.width(hint) + 12 < this.width) {
+            g.drawString(this.font, hint, this.width - this.font.width(hint) - 6, this.height - 12, Theme.TEXT_DIM);
+        }
     }
 
     @Override

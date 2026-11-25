@@ -34,6 +34,12 @@ public final class MovementModules {
         m.add(new AutoWalk());
         m.add(new NoClip());
         m.add(new AutoSneak());
+        m.add(new AirStrafe());
+        m.add(new LongJump());
+        m.add(new WaterSpeed());
+        m.add(new SafeWalk());
+        m.add(new Parkour());
+        m.add(new NoSlow());
     }
 
     // ------------------------------------------------------------------
@@ -489,6 +495,135 @@ public final class MovementModules {
         @Override
         protected void onDisable() {
             mc.options.keyShift.setDown(false);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class AirStrafe extends Module {
+        private final Setting.Num turn = num("Turn", 0.5, 0.1, 1.0, 0.1);
+
+        public AirStrafe() {
+            super("AirStrafe", "Steer freely in the air without losing speed.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (p.onGround() || p.isInWater() || p.isInLava() || p.getAbilities().flying || !MoveUtil.isMoving()) {
+                return;
+            }
+            Vec3 v = p.getDeltaMovement();
+            double h = Math.hypot(v.x, v.z);
+            if (h < 0.05) {
+                return;
+            }
+            Vec3 dir = MoveUtil.direction(h);
+            double t = turn.d();
+            p.setDeltaMovement(v.x + (dir.x - v.x) * t, v.y, v.z + (dir.z - v.z) * t);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class LongJump extends Module {
+        private final Setting.Num boost = num("Boost", 0.8, 0.3, 2.0, 0.1);
+        private boolean wasOnGround;
+
+        public LongJump() {
+            super("LongJump", "Launches you forward when you jump.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            boolean ground = p.onGround();
+            if (wasOnGround && !ground && p.getDeltaMovement().y > 0.1 && MoveUtil.isMoving()) {
+                Vec3 d = MoveUtil.direction(boost.d());
+                p.setDeltaMovement(d.x, p.getDeltaMovement().y, d.z);
+            }
+            wasOnGround = ground;
+        }
+
+        @Override
+        public String getSuffix() {
+            return boost.display();
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class WaterSpeed extends Module {
+        private final Setting.Num speed = num("Speed", 0.3, 0.1, 1.0, 0.05);
+
+        public WaterSpeed() {
+            super("WaterSpeed", "Swim faster.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (!p.isInWater() || !MoveUtil.isMoving()) {
+                return;
+            }
+            Vec3 v = p.getDeltaMovement();
+            Vec3 dir = MoveUtil.direction(speed.d());
+            p.setDeltaMovement(dir.x, v.y, dir.z);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class SafeWalk extends Module {
+        public SafeWalk() {
+            super("SafeWalk", "Stops you at the edge of blocks so you cannot walk off. Hold Shift to go over anyway.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (p.isShiftKeyDown() || p.getAbilities().flying || !MoveUtil.edgeAhead()) {
+                return;
+            }
+            p.setDeltaMovement(0, p.getDeltaMovement().y, 0);
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class Parkour extends Module {
+        public Parkour() {
+            super("Parkour", "Jumps for you at the very edge of a block.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (MoveUtil.isMoving() && !p.isShiftKeyDown() && MoveUtil.edgeAhead()) {
+                Vec3 v = p.getDeltaMovement();
+                p.setDeltaMovement(v.x, 0.42, v.z);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+
+    public static final class NoSlow extends Module {
+        private final Setting.Num speed = num("Speed", 0.2, 0.1, 0.3, 0.01);
+
+        public NoSlow() {
+            super("NoSlow", "Keeps you walking at normal speed while eating, drawing a bow or blocking.", Category.MOVEMENT);
+        }
+
+        @Override
+        public void onTick() {
+            LocalPlayer p = mc.player;
+            if (!p.isUsingItem() || p.isPassenger() || !MoveUtil.isMoving()) {
+                return;
+            }
+            Vec3 v = p.getDeltaMovement();
+            Vec3 dir = MoveUtil.direction(speed.d());
+            p.setDeltaMovement(dir.x, v.y, dir.z);
         }
     }
 }
